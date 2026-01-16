@@ -1,0 +1,5 @@
+{
+  "name": "ImóvelTracker UFMG",
+  "description": "A smart spreadsheet application to organize, rank, and analyze potential rental properties for UFMG Law students.",
+  "requestFramePermissions": []
+}
