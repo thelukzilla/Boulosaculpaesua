@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Property, UFMGAccess } from './types';
 import PropertyForm from './components/PropertyForm';
+import ScatterChart from './components/ScatterChart';
+import AnalysisModal from './components/AnalysisModal';
+import { analyzeAllProperties } from './services/geminiService';
 import { 
   Plus, 
   Search, 
-  MapPin, 
   ExternalLink, 
   Bus, 
   ShieldCheck, 
@@ -13,9 +15,9 @@ import {
   Trophy, 
   Trash2, 
   Edit2, 
-  TrendingUp, 
   Building2,
-  DollarSign
+  DollarSign,
+  Sparkles
 } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'ufmg-imoveis-data-v1';
@@ -26,6 +28,11 @@ const App: React.FC = () => {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Property; direction: 'asc' | 'desc' } | null>(null);
+
+  // AI Analysis States
+  const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState('');
 
   // Load data on mount
   useEffect(() => {
@@ -64,6 +71,23 @@ const App: React.FC = () => {
   const handleEdit = (property: Property) => {
     setEditingProperty(property);
     setIsFormOpen(true);
+  };
+
+  const handleAnalyze = async () => {
+    if (properties.length === 0) return;
+    setIsAnalysisOpen(true);
+    // Se já tiver resultado, não processa de novo a menos que o usuário limpe ou queira forçar (simplificação aqui: processa sempre se abrir)
+    setIsAnalyzing(true);
+    setAnalysisResult('');
+    
+    try {
+      const result = await analyzeAllProperties(properties);
+      setAnalysisResult(result);
+    } catch (error) {
+      setAnalysisResult("Ocorreu um erro ao conectar com a Inteligência Artificial. Verifique sua chave de API.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSort = (key: keyof Property) => {
@@ -136,13 +160,24 @@ const App: React.FC = () => {
               Imóvel<span className="text-brand-600">Tracker</span> UFMG
             </h1>
           </div>
-          <button 
-            onClick={() => { setEditingProperty(null); setIsFormOpen(true); }}
-            className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all active:scale-95"
-          >
-            <Plus size={18} />
-            <span className="hidden sm:inline">Novo Imóvel</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {properties.length > 0 && (
+              <button
+                onClick={handleAnalyze}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all active:scale-95"
+              >
+                <Sparkles size={16} />
+                <span className="hidden sm:inline">Consultar IA</span>
+              </button>
+            )}
+            <button 
+              onClick={() => { setEditingProperty(null); setIsFormOpen(true); }}
+              className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all active:scale-95"
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline">Novo Imóvel</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -182,6 +217,11 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Visual Chart Section */}
+        {properties.length > 0 && (
+          <ScatterChart properties={properties} />
+        )}
 
         {/* Filters and Search */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -304,6 +344,13 @@ const App: React.FC = () => {
         onClose={() => { setIsFormOpen(false); setEditingProperty(null); }} 
         onSave={handleSaveProperty}
         initialData={editingProperty}
+      />
+      
+      <AnalysisModal 
+        isOpen={isAnalysisOpen}
+        onClose={() => setIsAnalysisOpen(false)}
+        analysis={analysisResult}
+        isLoading={isAnalyzing}
       />
     </div>
   );
